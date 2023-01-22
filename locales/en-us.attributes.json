@@ -1,0 +1,22 @@
+{
+    "pryo_dmg_": "pryo",
+    "eletro_dmg_": "eletro",
+    "hydro_dmg_": "hydro",
+    "dendro_dmg_": "dendro",
+    "cryo_dmg_": "cryo",
+    "anemo_dmg_": "anemo",
+    "geo_dmg_": "geo",
+    "physical_dmg_": "physical",
+
+    "enerRech_": "ER",
+    "critRate_": "CR",
+    "critDMG_": "CD",
+    "heal_": "HB",
+    "eleMas": "EM",
+    "atk": "ATK",
+    "atk_": "ATK",
+    "def": "DEF",
+    "def_": "DEF",
+    "hp": "HP",
+    "hp_": "HP"
+}

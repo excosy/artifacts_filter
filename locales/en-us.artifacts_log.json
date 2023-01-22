@@ -1,0 +1,17 @@
+{
+    "flower": "Flower of Life",
+    "plume": "Plume of Death",
+    "sands": "Sands of Eon",
+    "goblet": "Goblet of Eonothem",
+    "circlet": "Circlet of Logos",
+    "main_attrs": "Main Attributes",
+    "sub_attrs": "Sub Attributes",
+    "value_comment": "compatible with %{set}, with %{val} effective attributes",
+    "slot_threshold": "threshold of this slot",
+    "worthless": "worthless with all sets",
+    "set_requirements": "sets requirements",
+    "level>1": "leveluped",
+    "locked": "locked",
+    "not_registered": "not registered at locales/%{lang}.artifacts.json",
+    "inavailable_main_attr": "incompatible main attributes"
+}

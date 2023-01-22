@@ -1,0 +1,51 @@
+{
+    "locale": "zh-cn",
+
+    "least_of_flower_hp": 3,
+    "least_of_plume_atk": 3,
+
+    "least_of_sands_atk_": 2.5,
+    "least_of_sands_def_": 2.5,
+    "least_of_sands_hp_": 2.5,
+    "least_of_sands_eleMas": 2,
+    "least_of_sands_enerRech_": 2,
+
+    "least_of_goblet_atk_": 2.5,
+    "least_of_goblet_def_": 2.5,
+    "least_of_goblet_hp_": 2.5,
+    "least_of_goblet_eleMas": 1,
+    "least_of_goblet_ele_dmg_": 1.5,
+
+    "least_of_circlet_atk_": 2.5,
+    "least_of_circlet_def_": 2.5,
+    "least_of_circlet_hp_": 2.5,
+    "least_of_circlet_eleMas": 1.5,
+    "least_of_circlet_critRate_": 2,
+    "least_of_circlet_critDMG_": 2,
+    "least_of_circle_heal_": 2,
+
+    "subleast_of_flower_hp": 3.5,
+    "subleast_of_plume_atk": 3.5,
+
+    "subleast_of_sands_atk_": 3,
+    "subleast_of_sands_def_": 3,
+    "subleast_of_sands_hp_": 3,
+    "subleast_of_sands_eleMas": 2.5,
+    "subleast_of_sands_enerRech_": 2.5,
+
+    "subleast_of_goblet_atk_": 3,
+    "subleast_of_goblet_def_": 3,
+    "subleast_of_goblet_hp_": 3,
+    "subleast_of_goblet_eleMas": 1,
+    "subleast_of_goblet_ele_dmg_": 1.5,
+
+    "subleast_of_circlet_atk_": 3,
+    "subleast_of_circlet_def_": 3,
+    "subleast_of_circlet_hp_": 3,
+    "subleast_of_circlet_eleMas": 2,
+    "subleast_of_circlet_critRate_": 2.5,
+    "subleast_of_circlet_critDMG_": 2.5,
+    "subleast_of_circle_heal_": 2.5,
+
+    "allow_substitution": true
+}
