@@ -21,10 +21,13 @@ KEY_MAIN_ATTR = {
 LOC_ATTRS.each { |k,v| KEY_MAIN_ATTR[v] = k if k.match("_dmg_") }
 ARTIFACTS_SETS = JSON.load_file! "locales/#{CONFIG["locale"]}.artifacts_sets.json"
 CHAR_CONFIG = CSV.read "config/#{CONFIG["locale"]}.artifacts_equip.csv", headers: true
+DISABLED_CHARS = if File.exists? "yas/disabled_chars.txt"
+        File.read("yas/disabled_chars.txt").split
+    else [] end
 
 # 根据人物主堆属性确定各主属性下属词条
 CHAR_CONFIG.each do |c|
-    next if c["enable"].upcase != "TRUE"
+    next if c["enable"].upcase != "TRUE" || DISABLED_CHARS.include?(c["char"])
 
     c_attr = {
         "sub_attr" => [],
@@ -77,7 +80,7 @@ CHAR_CONFIG.each do |c|
     end
     c_attr["sub_attr"].uniq!
     cs = c_attr["sub_attr"].map{|x| LOC_ATTRS[x]}.uniq.join(",")
-    c_attr["detail"] = "#{LOC_LOG["main_attrs"]}: #{cm.join(";")}\t#{LOC_LOG["sub_attrs"]}: #{cs}"
+    c_attr["detail"] = "#{LOC_LOG["main_attrs"]}: #{cm.join("; ")}\t#{LOC_LOG["sub_attrs"]}: #{cs}"
 
     ARTIFACTS_SETS.each do |k,v|
         next if !c[v]
@@ -100,16 +103,16 @@ CHAR_CONFIG.each do |c|
 end
 
 SUB_STAT_BASE_VALUES = {
-    "hp" => [1, 29.88, 71.70, 143.40, 239.00, 298.75],
-    "atk" => [1, 1.95, 4.67, 9.34, 15.56, 19.45],
-    "def" => [1, 2.31, 5.56, 11.11, 18.52, 23.15],
-    "hp_" => [1, 1.46, 2.33, 3.50, 4.66, 5.83],
-    "atk_" => [1, 1.46, 2.33, 3.50, 4.66, 5.83],
-    "def_" => [1, 1.82, 2.91, 4.37, 5.83, 7.29],
-    "eleMas" => [1, 5.83, 9.33, 13.99, 18.56, 23.31],
-    "enerRech_" => [1, 1.62, 2.59, 3.89, 5.18, 6.48],
-    "critRate_" => [1, 0.97, 1.55, 2.33, 3.11, 3.89],
-    "critDMG_" => [1, 1.94, 3.11, 4.66, 6.22, 7.77],
+    "hp"=>[10.0, 29.9, 71.7, 143.4, 239.0, 298.8],
+    "atk"=>[1.0, 2.0, 4.7, 9.3, 15.6, 19.5],
+    "def"=>[1.0, 2.3, 5.6, 11.1, 18.5, 23.2],
+    "hp_"=>[1.0, 1.5, 2.3, 3.5, 4.7, 5.8],
+    "atk_"=>[1.0, 1.5, 2.3, 3.5, 4.7, 5.8],
+    "def_"=>[1.0, 1.8, 2.9, 4.4, 5.8, 7.3],
+    "eleMas"=>[1.0, 5.8, 9.3, 14.0, 18.6, 23.3],
+    "enerRech_"=>[1.0, 1.6, 2.6, 3.9, 5.2, 6.5],
+    "critRate_"=>[1.0, 1.0, 1.6, 2.3, 3.1, 3.9],
+    "critDMG_"=>[1.0, 1.9, 3.1, 4.7, 6.2, 7.8],
 }
 # 计算价值并根据设置决定圣遗物去留
 FORCE_UNLOCK = ARGV.include? "-f"

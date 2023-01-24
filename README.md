@@ -42,7 +42,8 @@ sudo pacman -Sy ruby
     * mainAttr, mainAttr2, subAttr只能在攻防生精中选择。
     * ER: 是否刚需充能。2-可选充能沙，1-只靠副词条歪充能，0-充能为无效词条，-1-完全舍弃大招。
     * CR: 是否需要暴击。3-需要暴击爆伤，2-只需要爆伤，1-只需要暴击，0-无需暴击，-1-需要治疗头。
-    * enable: 是否启用该行配置。
+    * enable: 是否启用该行配置，不启用则置FALSE，或者直接删除该行也可。
+* 也可以在`yas/disabled_chars.txt`定义禁用的人物，每行一个人物名，效果同上文enable列置false。
 * 所有文件均以utf8编码保存，保存配置文件时请勿更改编码。
 * 运行完成后可在`yas/artifacts.log`里复查结果。
 
