@@ -45,7 +45,7 @@ sudo pacman -Sy ruby
     * enable: 是否启用该行配置，不启用则置FALSE，或者直接删除该行也可。
 * 也可以在`yas/disabled_chars.txt`定义禁用的人物，每行一个人物名，效果同上文enable列置false。
 * 所有文件均以utf8编码保存，保存配置文件时请勿更改编码。
-* 运行完成后可在`yas/artifacts.log`里复查结果。
+* 运行完成后可在`yas/artifacts.chars.log`里复查结果。
 
 ## 3. Credits
 

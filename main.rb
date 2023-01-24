@@ -24,6 +24,7 @@ CHAR_CONFIG = CSV.read "config/#{CONFIG["locale"]}.artifacts_equip.csv", headers
 DISABLED_CHARS = if File.exists? "yas/disabled_chars.txt"
         File.read("yas/disabled_chars.txt").split
     else [] end
+artifacts_requirements = {}
 
 # 根据人物主堆属性确定各主属性下属词条
 CHAR_CONFIG.each do |c|
@@ -92,6 +93,8 @@ CHAR_CONFIG.each do |c|
             "comment" => "#{c["char"]}-#{c["mainAttr"]}-#{v}",
             "detail" => c_attr["detail"],
         }
+        artifacts_requirements[as_attr["comment"]] = as_attr
+
 
         c_attr["main_attr"].each do |s,t|
             t.uniq.each do |a|
@@ -116,25 +119,17 @@ SUB_STAT_BASE_VALUES = {
 }
 # 计算价值并根据设置决定圣遗物去留
 FORCE_UNLOCK = ARGV.include? "-f"
-artifacts_log = File.open("yas/artifacts.log","w")
 lock_artifacts = []
-JSON.load_file!("yas/good.json")["artifacts"].each_with_index do |a,i|
-    artifacts_log.puts "====================================================="
-    info = "No.#{i+1}: #{ARTIFACTS_SETS[a["setKey"]]}-#{LOC_LOG[a["slotKey"]]}"
+log_artifacts_debug = File.open("yas/artifacts.debug.log","w")
+ALL_ARTIFACTS = JSON.load_file!("yas/good.json")["artifacts"]
+ALL_ARTIFACTS.each_with_index do |a,i|
+    log_artifacts_debug.puts "====================================================="
+    info = "No.#{i+1}: #{ARTIFACTS_SETS[a["setKey"]]}-#{LOC_LOG[a["slotKey"]]}\tlv.#{a["level"]}"
     info += "\t#{LOC_LOG["main_attrs"]}: #{LOC_ATTRS[a["mainStatKey"]]}"
     info += "\t#{LOC_LOG["sub_attrs"]}: #{a["substats"].map{|x| LOC_ATTRS[x["key"]]}.join(",")}"
-    info += "\t#{LOC_LOG["level>1"]}" if a["level"].to_i > 1
-    artifacts_log.puts info
-
-    artifacts_log.puts LOC_LOG["locked"] and next if a["lock"] && !FORCE_UNLOCK
-    if !ARTIFACTS_SETS[a["setKey"]]
-        artifacts_log.puts LOC_LOG["not_registered"] % {lang: CONFIG["locale"]}
-        next
-    end
-    if !ARTIFACTS_ATTRS[a["slotKey"]][a["mainStatKey"]]
-        artifacts_log.puts LOC_LOG["inavailable_main_attr"]
-        next
-    end
+    log_artifacts_debug.puts info
+    next log_artifacts_debug.puts LOC_LOG["set_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]]
+    next log_artifacts_debug.puts LOC_LOG["main_attr_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]][a["mainStatKey"]]
 
     available_count = 0
     ARTIFACTS_ATTRS[a["slotKey"]][a["mainStatKey"]].each do |ac|
@@ -147,11 +142,11 @@ JSON.load_file!("yas/good.json")["artifacts"].each_with_index do |a,i|
 
         # 初始词条不满时价值+0.5
         value += 0.5 if a["substats"].length < a["rarity"].to_i - 1
-        a["mainStatKey"] = "ele_dmg_" if a["mainStatKey"].match /^\w+_dmg_$/
+        mainStatKey = a["mainStatKey"].match(/^\w+_dmg_$/) ? "ele_dmg_" : a["mainStatKey"]
         threshold = if ac["sets"] == a["setKey"]
-                CONFIG["least_of_#{a["slotKey"]}_#{a["mainStatKey"]}"]
+                CONFIG["least_of_#{a["slotKey"]}_#{mainStatKey}"]
             else
-                CONFIG["subleast_of_#{a["slotKey"]}_#{a["mainStatKey"]}"]
+                CONFIG["subleast_of_#{a["slotKey"]}_#{mainStatKey}"]
             end
         # 有效词条不足4时减少阈值
         if ac["sets"] == a["setKey"] && ac["sub_attr"].length < 5
@@ -161,11 +156,16 @@ JSON.load_file!("yas/good.json")["artifacts"].each_with_index do |a,i|
             threshold += a["level"] / 4
         end
         threshold += 1 if ac["sets"] != a["setKey"] && ac["multi"]
+
+        log_artifacts_debug.puts "-----------------------------------------------------"
+        log_artifacts_debug.puts "#{ac["comment"]}\t#{LOC_LOG["value_comment"] % {val: value, thr: threshold}}"
+        log_artifacts_debug.puts "#{LOC_LOG["set_requirements"]}: #{ac["detail"]}"
+
         if value >= threshold
-            artifacts_log.puts "-----------------------------------------------------"
-            artifacts_log.puts LOC_LOG["value_comment"] % {set: ac["comment"], val: value}
-            artifacts_log.puts "#{LOC_LOG["set_requirements"]}: #{ac["detail"]}"
-            artifacts_log.puts "#{LOC_LOG["slot_threshold"]}: #{threshold}"
+            artifacts_requirements[ac["comment"]]["artifacts"] ||= []
+            artifacts_requirements[ac["comment"]]["artifacts"] << {
+                "no." => i, "value" => value, "threshold" => threshold
+            }
             available_count += 1
         end
     end
@@ -173,10 +173,26 @@ JSON.load_file!("yas/good.json")["artifacts"].each_with_index do |a,i|
         lock_artifacts << i if !a["lock"]
     else
         lock_artifacts << i if FORCE_UNLOCK && a["lock"]
-        artifacts_log.puts LOC_LOG["worthless"]
     end
 end
 
-artifacts_log.close
+log_artifacts_chars = File.open("yas/artifacts.chars.log", "w")
+artifacts_requirements.each do |c,ac|
+    log_artifacts_chars.puts "====================================================="
+    log_artifacts_chars.puts c
+    log_artifacts_chars.puts "#{LOC_LOG["set_requirements"]}: #{ac["detail"]}"
+    next log_artifacts_chars.puts "#{LOC_LOG["set_requirements"]}: #{ac["detail"]}" if !ac["artifacts"]
+    ac["artifacts"].each do |ai|
+        a = ALL_ARTIFACTS[ai["no."]]
+        log_artifacts_chars.puts "-----------------------------------------------------"
+        info = "No.#{ai["no."]+1}: #{ARTIFACTS_SETS[a["setKey"]]}-#{LOC_LOG[a["slotKey"]]}"
+        info += "\t#{LOC_LOG["main_attrs"]}: #{LOC_ATTRS[a["mainStatKey"]]}"
+        info += "\t#{LOC_LOG["sub_attrs"]}: #{a["substats"].map{|x| LOC_ATTRS[x["key"]]}.join(",")}"
+        info += "\tlv.#{a["level"]}\n#{LOC_LOG["value_comment"] % {val: ai["value"], thr: ai["threshold"]}}"
+        log_artifacts_chars.puts info
+    end
+end
+log_artifacts_chars.close
+log_artifacts_debug.close
 File.write "yas/lock.json", lock_artifacts.to_json
 puts "lock-pending artifacts count: #{lock_artifacts.length}"

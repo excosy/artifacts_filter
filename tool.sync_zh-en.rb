@@ -20,6 +20,8 @@ File.write path_zh, zh_headers + "\r\n" + zh_bodies + "\r\n"
 
 locale_zh = `ls locales/zh-cn.*.json`.split.reduce({}) { |r,f| r.merge JSON.load_file!(f) }
 locale_en = `ls locales/en-us.*.json`.split.reduce({}) { |r,f| r.merge JSON.load_file!(f) }
+puts "missing key in locale_en" if (locale_en.keys - locale_zh.keys).length > 0
+puts "missing key in locale_zh" if (locale_zh.keys - locale_en.keys).length > 0
 locale_zh_en = {}
 locale_zh.keys.each {|x| locale_zh_en[locale_zh[x]] = locale_en[x] }
 path_en = "config/en-us.artifacts_equip.csv"

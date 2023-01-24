@@ -6,12 +6,9 @@
     "circlet": "理之冠",
     "main_attrs": "主属性",
     "sub_attrs": "副属性",
-    "value_comment": "可用于%{set}, 有效词条%{val}",
-    "slot_threshold": "当前部位目标词条数",
-    "worthless": "无适配套装",
+    "value_comment": "有效词条 %{val}, 目标词条 %{thr}",
     "set_requirements": "套装需求",
-    "level>1": "圣遗物已强化",
-    "locked": "圣遗物已锁定",
-    "not_registered": "圣遗物未在locales/%{lang}.artifacts.json注册",
-    "inavailable_main_attr": "主属性不适配"
+    "set_not_used": "圣遗物套装未使用",
+    "main_attr_not_used": "主属性不适配",
+    "no_artifact_compatible": "无适配圣遗物"
 }
