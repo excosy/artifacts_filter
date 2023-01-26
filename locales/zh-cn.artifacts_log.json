@@ -8,6 +8,7 @@
     "sub_attrs": "副属性",
     "value_comment": "有效词条 %{val}, 目标词条 %{thr}",
     "set_requirements": "套装需求",
+    "detail_note": "格式: 有效词条/目标词条",
     "set_not_used": "圣遗物套装未使用",
     "main_attr_not_used": "主属性不适配",
     "no_artifact_compatible": "无适配圣遗物"

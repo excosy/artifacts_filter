@@ -34,6 +34,7 @@ sudo pacman -Sy ruby
     * 小攻击小防御小生命计0.5词条，其余计1词条。
     * least_xx_yy：套装正确时xx部位以yy为主词条的胚子的有效副词条下限。低于此数值的胚子将被舍弃。
     * subleast_xx_yy: 用作散件时xx部位以yy为主词条的胚子的有效副词条下限。低于此数值的胚子将被舍弃。
+    * allow_nonset_on_flower: 花毛允许使用散件，默认false。
     * allow_substitution: 允许下位替代，比如需求属伤杯时攻击杯也有效。
 * `config/{lang}.artifacts_equip.csv`定义了人物需求的属性：
     * elem: 主要伤害类型，七元素+物理，影响属伤杯的选择，为空则无需属伤杯。

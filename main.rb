@@ -19,28 +19,31 @@ KEY_MAIN_ATTR = {
     LOC_ATTRS["eleMas"] => "eleMas",
 }
 LOC_ATTRS.each { |k,v| KEY_MAIN_ATTR[v] = k if k.match("_dmg_") }
-ARTIFACTS_SETS = JSON.load_file! "locales/#{CONFIG["locale"]}.artifacts_sets.json"
+LOC_ARTIFACTS = JSON.load_file! "locales/#{CONFIG["locale"]}.artifacts_sets.json"
 CHAR_CONFIG = CSV.read "config/#{CONFIG["locale"]}.artifacts_equip.csv", headers: true
 DISABLED_CHARS = if File.exists? "yas/disabled_chars.txt"
         File.read("yas/disabled_chars.txt").split
     else [] end
 artifacts_requirements = {}
+chars_requirements = {}
 
 # 根据人物主堆属性确定各主属性下属词条
 CHAR_CONFIG.each do |c|
     next if c["enable"].upcase != "TRUE" || DISABLED_CHARS.include?(c["char"])
 
     c_attr = {
+        "char" => c["char"],
         "sub_attr" => [],
-        "main_attr" => {
-            "flower" => ["hp"],
-            "plume" => ["atk"],
-            "sands" => [],
-            "goblet" => [],
-            "circlet" => [],
-        },
         "multi" => false,
         "detail" => "",
+        "sets" => LOC_ARTIFACTS.filter{|k,v| c[v]}.keys,
+    }
+    main_attr = {
+        "flower" => ["hp"],
+        "plume" => ["atk"],
+        "sands" => [],
+        "goblet" => [],
+        "circlet" => [],
     }
 
     ["mainAttr", "mainAttr2", "subAttr"].each do |x|
@@ -53,54 +56,45 @@ CHAR_CONFIG.each do |c|
     end
     c_attr["multi"] = true if (c_attr["sub_attr"] & ["atk","def","hp"]).length > 1
 
-    c_attr["main_attr"]["sands"] += ["enerRech_"] if c["ER"].to_i > 1
+    main_attr["sands"] += ["enerRech_"] if c["ER"].to_i > 1
     c_attr["sub_attr"] += ["enerRech_"] if c["ER"].to_i > 0
 
-    c_attr["main_attr"]["goblet"] << KEY_MAIN_ATTR[c["elem"]] if KEY_MAIN_ATTR[c["elem"]]
+    main_attr["goblet"] << KEY_MAIN_ATTR[c["elem"]] if KEY_MAIN_ATTR[c["elem"]]
 
     case c["CR"].to_i
-    when -1 then c_attr["sub_attr"] += ["heal_"]
+    when -1 then main_attr["circlet"] += ["heal_"]
     when 1
         c_attr["sub_attr"] += ["critRate_"]
-        c_attr["main_attr"]["circlet"] += ["critRate_"]
+        main_attr["circlet"] += ["critRate_"]
     when 2
         c_attr["sub_attr"] += ["critDMG_"]
-        c_attr["main_attr"]["circlet"] += ["critDMG_"]
+        main_attr["circlet"] += ["critDMG_"]
     when 3
         c_attr["sub_attr"] += ["critRate_", "critDMG_"]
-        c_attr["main_attr"]["circlet"] += ["critRate_", "critDMG_"]
+        main_attr["circlet"] += ["critRate_", "critDMG_"]
     end
 
     cm = ["sands", "goblet", "circlet"].map do |x|
-        if CONFIG["allow_substitution"] || !c_attr["main_attr"][x]
-            c_attr["main_attr"][x] << KEY_MAIN_ATTR[c["mainAttr"]]
-            c_attr["main_attr"][x] << KEY_MAIN_ATTR[c["mainAttr2"]] if KEY_MAIN_ATTR[c["mainAttr2"]]
-            c_attr["main_attr"][x].uniq!
+        if CONFIG["allow_substitution"] || !main_attr[x]
+            main_attr[x] << KEY_MAIN_ATTR[c["mainAttr"]]
+            main_attr[x] << KEY_MAIN_ATTR[c["mainAttr2"]] if KEY_MAIN_ATTR[c["mainAttr2"]]
+            main_attr[x].uniq!
         end
-        c_attr["main_attr"][x].map{|x| LOC_ATTRS[x]}.uniq.join(",")
+        main_attr[x].map{|x| LOC_ATTRS[x]}.uniq.join(",")
     end
     c_attr["sub_attr"].uniq!
     cs = c_attr["sub_attr"].map{|x| LOC_ATTRS[x]}.uniq.join(",")
     c_attr["detail"] = "#{LOC_LOG["main_attrs"]}: #{cm.join("; ")}\t#{LOC_LOG["sub_attrs"]}: #{cs}"
 
-    ARTIFACTS_SETS.each do |k,v|
-        next if !c[v]
-
-        as_attr = {
-            "sets" => k,
-            "sub_attr" => c_attr["sub_attr"],
-            "multi" => c_attr["multi"],
-            "comment" => "#{c["char"]}-#{c["mainAttr"]}-#{v}",
-            "detail" => c_attr["detail"],
-        }
-        artifacts_requirements[as_attr["comment"]] = as_attr
-
-
-        c_attr["main_attr"].each do |s,t|
-            t.uniq.each do |a|
-                ARTIFACTS_ATTRS[s][a] ||= []
-                ARTIFACTS_ATTRS[s][a] << as_attr
-            end
+    artifacts_requirements[c_attr["char"]] = c_attr
+    chars_requirements[c_attr["char"]] = {
+        "sets" => c_attr["sets"].map{|x| LOC_ARTIFACTS[x]},
+        "sub_attr" => c_attr["sub_attr"].map{|x| LOC_ATTRS[x]}.uniq
+    }
+    main_attr.each do |s,t|
+        t.uniq.each do |a|
+            ARTIFACTS_ATTRS[s][a] ||= []
+            ARTIFACTS_ATTRS[s][a] << c_attr
         end
     end
 end
@@ -120,50 +114,47 @@ SUB_STAT_BASE_VALUES = {
 # 计算价值并根据设置决定圣遗物去留
 FORCE_UNLOCK = ARGV.include? "-f"
 lock_artifacts = []
-log_artifacts_debug = File.open("yas/artifacts.debug.log","w")
+log_artifacts_detail = File.open("yas/artifacts.detail.csv","w")
+log_artifacts_detail << "\xEF\xBB\xBF"
+CSV_PREFIX = %w[No. setName slotName level mainAttr subAttr availableCount]
+log_artifacts_detail.puts (CSV_PREFIX + chars_requirements.keys).join(",")
+sec_prefix = [LOC_LOG["sub_attrs"], LOC_LOG["detail_note"]] + [nil] * (CSV_PREFIX.length - 2)
+sub_attrs = chars_requirements.values.map{|x| x["sub_attr"].join(" ")}
+log_artifacts_detail.puts (sec_prefix + sub_attrs).join(",")
 ALL_ARTIFACTS = JSON.load_file!("yas/good.json")["artifacts"]
 ALL_ARTIFACTS.each_with_index do |a,i|
-    log_artifacts_debug.puts "====================================================="
-    info = "No.#{i+1}: #{ARTIFACTS_SETS[a["setKey"]]}-#{LOC_LOG[a["slotKey"]]}\tlv.#{a["level"]}"
-    info += "\t#{LOC_LOG["main_attrs"]}: #{LOC_ATTRS[a["mainStatKey"]]}"
-    info += "\t#{LOC_LOG["sub_attrs"]}: #{a["substats"].map{|x| LOC_ATTRS[x["key"]]}.join(",")}"
-    log_artifacts_debug.puts info
-    next log_artifacts_debug.puts LOC_LOG["set_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]]
-    next log_artifacts_debug.puts LOC_LOG["main_attr_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]][a["mainStatKey"]]
+    info = [i, LOC_ARTIFACTS[a["setKey"]], LOC_LOG[a["slotKey"]], a["level"], LOC_ATTRS[a["mainStatKey"]]]
+    info.push a["substats"].map{|x| LOC_ATTRS[x["key"]]}.join(" "), false
+    info[-1] = LOC_LOG["set_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]]
+    info[-1] = LOC_LOG["main_attr_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]][a["mainStatKey"]]
+    next log_artifacts_detail.puts info.join(",") if info[-1]
 
     available_count = 0
+    available_chars = {}
     ARTIFACTS_ATTRS[a["slotKey"]][a["mainStatKey"]].each do |ac|
+        is_cor_set = ac["sets"].include? a["setKey"]
+        # 花毛始终使用套件
+        next if !is_cor_set && !CONFIG["allow_nonset_on_flower"] && (a["slotKey"] == "flower" || a["slotKey"] == "plume")
+
         value = a["substats"].sum(0) do |x|
             next 0 if !ac["sub_attr"].include? x["key"]
             _v = (x["value"] / SUB_STAT_BASE_VALUES[x["key"]][a["rarity"]]).ceil
             # 计算副词条价值，小词条计0.5
-            ["atk","def","hp"].include?(x) ? _v / 2 : _v
+            ["atk","def","hp"].include?(x["key"]) ? _v.to_f / 2 : _v
         end
 
-        # 初始词条不满时价值+0.5
-        value += 0.5 if a["substats"].length < a["rarity"].to_i - 1
         mainStatKey = a["mainStatKey"].match(/^\w+_dmg_$/) ? "ele_dmg_" : a["mainStatKey"]
-        threshold = if ac["sets"] == a["setKey"]
-                CONFIG["least_of_#{a["slotKey"]}_#{mainStatKey}"]
-            else
-                CONFIG["subleast_of_#{a["slotKey"]}_#{mainStatKey}"]
-            end
-        # 有效词条不足4时减少阈值
-        if ac["sets"] == a["setKey"] && ac["sub_attr"].length < 5
-            threshold = [threshold, ac["sub_attr"].length - 1].min
-            threshold += (a["level"] / 4 * (ac["sub_attr"].length - 1) / 4.0).ceil
-        else
-            threshold += a["level"] / 4
-        end
-        threshold += 1 if ac["sets"] != a["setKey"] && ac["multi"]
+        threshold = CONFIG["#{"sub" if !is_cor_set}least_of_#{a["slotKey"]}_#{mainStatKey}"]
+        # 根据有效词条种数调整阈值
+        threshold = [threshold, ac["sub_attr"].length - 1].min
+        _v = [ac["sub_attr"].length - 1, 4].min / 4.0
+        threshold += (a["level"] / 4 * _v).ceil
+        threshold += 1 if !is_cor_set && ac["multi"]
 
-        log_artifacts_debug.puts "-----------------------------------------------------"
-        log_artifacts_debug.puts "#{ac["comment"]}\t#{LOC_LOG["value_comment"] % {val: value, thr: threshold}}"
-        log_artifacts_debug.puts "#{LOC_LOG["set_requirements"]}: #{ac["detail"]}"
-
+        available_chars[ac["char"]] = "#{value}/#{threshold}"
         if value >= threshold
-            artifacts_requirements[ac["comment"]]["artifacts"] ||= []
-            artifacts_requirements[ac["comment"]]["artifacts"] << {
+            artifacts_requirements[ac["char"]]["artifacts"] ||= []
+            artifacts_requirements[ac["char"]]["artifacts"] << {
                 "no." => i, "value" => value, "threshold" => threshold
             }
             available_count += 1
@@ -174,25 +165,29 @@ ALL_ARTIFACTS.each_with_index do |a,i|
     else
         lock_artifacts << i if FORCE_UNLOCK && a["lock"]
     end
+    info[-1] = available_count
+    info += chars_requirements.keys.map{|c| available_chars[c]}
+    log_artifacts_detail.puts info.join(",")
 end
 
 log_artifacts_chars = File.open("yas/artifacts.chars.log", "w")
+log_artifacts_chars << "\xEF\xBB\xBF"
 artifacts_requirements.each do |c,ac|
-    log_artifacts_chars.puts "====================================================="
-    log_artifacts_chars.puts c
+    log_artifacts_chars.puts "\n====================================================="
+    log_artifacts_chars.puts "#{c}\t\t#{ac["sets"].map{|x| LOC_ARTIFACTS[x]}.join(", ")}"
     log_artifacts_chars.puts "#{LOC_LOG["set_requirements"]}: #{ac["detail"]}"
-    next log_artifacts_chars.puts "#{LOC_LOG["set_requirements"]}: #{ac["detail"]}" if !ac["artifacts"]
+    next if !ac["artifacts"]
     ac["artifacts"].each do |ai|
         a = ALL_ARTIFACTS[ai["no."]]
         log_artifacts_chars.puts "-----------------------------------------------------"
-        info = "No.#{ai["no."]+1}: #{ARTIFACTS_SETS[a["setKey"]]}-#{LOC_LOG[a["slotKey"]]}"
+        info = "No.#{ai["no."]}: #{LOC_ARTIFACTS[a["setKey"]]}-#{LOC_LOG[a["slotKey"]]}"
         info += "\t#{LOC_LOG["main_attrs"]}: #{LOC_ATTRS[a["mainStatKey"]]}"
         info += "\t#{LOC_LOG["sub_attrs"]}: #{a["substats"].map{|x| LOC_ATTRS[x["key"]]}.join(",")}"
-        info += "\tlv.#{a["level"]}\n#{LOC_LOG["value_comment"] % {val: ai["value"], thr: ai["threshold"]}}"
+        info += "\nlv.#{a["level"]}\t#{LOC_LOG["value_comment"] % {val: ai["value"], thr: ai["threshold"]}}"
         log_artifacts_chars.puts info
     end
 end
 log_artifacts_chars.close
-log_artifacts_debug.close
+log_artifacts_detail.close
 File.write "yas/lock.json", lock_artifacts.to_json
 puts "lock-pending artifacts count: #{lock_artifacts.length}"

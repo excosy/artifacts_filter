@@ -8,6 +8,7 @@
     "sub_attrs": "Sub Attributes",
     "value_comment": "value %{val}, threshold %{thr}",
     "set_requirements": "sets requirements",
+    "detail_note": "format: value/threshold",
     "set_not_used": "artifact set not used",
     "main_attr_not_used": "main attr not used",
     "no_artifact_compatible": "no artifact compactible"

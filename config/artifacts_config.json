@@ -22,7 +22,7 @@
     "least_of_circlet_eleMas": 1.5,
     "least_of_circlet_critRate_": 2,
     "least_of_circlet_critDMG_": 2,
-    "least_of_circle_heal_": 2,
+    "least_of_circlet_heal_": 2,
 
     "subleast_of_flower_hp": 3.5,
     "subleast_of_plume_atk": 3.5,
@@ -45,7 +45,8 @@
     "subleast_of_circlet_eleMas": 2,
     "subleast_of_circlet_critRate_": 2.5,
     "subleast_of_circlet_critDMG_": 2.5,
-    "subleast_of_circle_heal_": 2.5,
+    "subleast_of_circlet_heal_": 2.5,
 
+    "allow_nonset_on_flower": false,
     "allow_substitution": true
 }
