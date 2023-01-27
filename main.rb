@@ -1,5 +1,6 @@
 require "json"
 require "csv"
+require "write_xlsx"
 
 CONFIG = JSON.load_file! "config/artifacts_config.json"
 LOC_ATTRS = JSON.load_file! "locales/#{CONFIG["locale"]}.attributes.json"
@@ -24,7 +25,6 @@ CHAR_CONFIG = CSV.read "config/#{CONFIG["locale"]}.artifacts_equip.csv", headers
 DISABLED_CHARS = if File.exists? "yas/disabled_chars.txt"
         File.read("yas/disabled_chars.txt").split
     else [] end
-artifacts_requirements = {}
 chars_requirements = {}
 
 # 根据人物主堆属性确定各主属性下属词条
@@ -35,7 +35,6 @@ CHAR_CONFIG.each do |c|
         "char" => c["char"],
         "sub_attr" => [],
         "multi" => false,
-        "detail" => "",
         "sets" => LOC_ARTIFACTS.filter{|k,v| c[v]}.keys,
     }
     main_attr = {
@@ -54,7 +53,7 @@ CHAR_CONFIG.each do |c|
         when LOC_ATTRS["eleMas"] then c_attr["sub_attr"] += ["eleMas"]
         end
     end
-    c_attr["multi"] = true if (c_attr["sub_attr"] & ["atk","def","hp"]).length > 1
+    c_attr["multi"] = true if (c_attr["sub_attr"] & %w(atk def hp)).length > 1
 
     main_attr["sands"] += ["enerRech_"] if c["ER"].to_i > 1
     c_attr["sub_attr"] += ["enerRech_"] if c["ER"].to_i > 0
@@ -74,19 +73,14 @@ CHAR_CONFIG.each do |c|
         main_attr["circlet"] += ["critRate_", "critDMG_"]
     end
 
-    cm = ["sands", "goblet", "circlet"].map do |x|
-        if CONFIG["allow_substitution"] || !main_attr[x]
-            main_attr[x] << KEY_MAIN_ATTR[c["mainAttr"]]
-            main_attr[x] << KEY_MAIN_ATTR[c["mainAttr2"]] if KEY_MAIN_ATTR[c["mainAttr2"]]
-            main_attr[x].uniq!
-        end
-        main_attr[x].map{|x| LOC_ATTRS[x]}.uniq.join(",")
+    ["sands", "goblet", "circlet"].each do |x|
+        next if !CONFIG["allow_substitution"] && main_attr[x]
+        main_attr[x] << KEY_MAIN_ATTR[c["mainAttr"]]
+        main_attr[x] << KEY_MAIN_ATTR[c["mainAttr2"]] if KEY_MAIN_ATTR[c["mainAttr2"]]
+        main_attr[x].uniq!
     end
     c_attr["sub_attr"].uniq!
-    cs = c_attr["sub_attr"].map{|x| LOC_ATTRS[x]}.uniq.join(",")
-    c_attr["detail"] = "#{LOC_LOG["main_attrs"]}: #{cm.join("; ")}\t#{LOC_LOG["sub_attrs"]}: #{cs}"
 
-    artifacts_requirements[c_attr["char"]] = c_attr
     chars_requirements[c_attr["char"]] = {
         "sets" => c_attr["sets"].map{|x| LOC_ARTIFACTS[x]},
         "sub_attr" => c_attr["sub_attr"].map{|x| LOC_ATTRS[x]}.uniq
@@ -114,20 +108,33 @@ SUB_STAT_BASE_VALUES = {
 # 计算价值并根据设置决定圣遗物去留
 FORCE_UNLOCK = ARGV.include? "-f"
 lock_artifacts = []
-log_artifacts_detail = File.open("yas/artifacts.detail.csv","w")
-log_artifacts_detail << "\xEF\xBB\xBF"
-CSV_PREFIX = %w[No. setName slotName level mainAttr subAttr availableCount]
-log_artifacts_detail.puts (CSV_PREFIX + chars_requirements.keys).join(",")
-sec_prefix = [LOC_LOG["sub_attrs"], LOC_LOG["detail_note"]] + [nil] * (CSV_PREFIX.length - 2)
-sub_attrs = chars_requirements.values.map{|x| x["sub_attr"].join(" ")}
-log_artifacts_detail.puts (sec_prefix + sub_attrs).join(",")
+result_file = WriteXLSX.new "yas/artifacts.detail.#{Time.now.to_i}.xlsx"
+result_table = result_file.add_worksheet
+format_corset = { bg_color: "yellow" }
+format_useful = { color: "red" }
+
+CSV_PREFIX = %w[No. setName slotName level mainAttr subAttr locked lock-pending availableCount]
+result_table.write_row 0, 0, CSV_PREFIX + chars_requirements.keys
+result_table.write 1, 0, LOC_LOG["detail_note"]
+result_table.write 1, CSV_PREFIX.length - 1, LOC_LOG["sub_attrs"]
+result_table.write_row 1, CSV_PREFIX.length, chars_requirements.values.map{|x| x["sub_attr"].join(",")}
+
 ALL_ARTIFACTS = JSON.load_file!("yas/good.json")["artifacts"]
 ALL_ARTIFACTS.each_with_index do |a,i|
-    info = [i, LOC_ARTIFACTS[a["setKey"]], LOC_LOG[a["slotKey"]], a["level"], LOC_ATTRS[a["mainStatKey"]]]
-    info.push a["substats"].map{|x| LOC_ATTRS[x["key"]]}.join(" "), false
+    info = [
+        i,
+        LOC_ARTIFACTS[a["setKey"]],
+        LOC_LOG[a["slotKey"]],
+        a["level"],
+        LOC_ATTRS[a["mainStatKey"]],
+        a["substats"].map{|x| LOC_ATTRS[x["key"]]}.join(","),
+        a["lock"],
+        false,
+        false,
+    ]
     info[-1] = LOC_LOG["set_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]]
     info[-1] = LOC_LOG["main_attr_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]][a["mainStatKey"]]
-    next log_artifacts_detail.puts info.join(",") if info[-1]
+    next result_table.write_row i + 2, 0, info if info[-1]
 
     available_count = 0
     available_chars = {}
@@ -140,7 +147,7 @@ ALL_ARTIFACTS.each_with_index do |a,i|
             next 0 if !ac["sub_attr"].include? x["key"]
             _v = (x["value"] / SUB_STAT_BASE_VALUES[x["key"]][a["rarity"]]).ceil
             # 计算副词条价值，小词条计0.5
-            ["atk","def","hp"].include?(x["key"]) ? _v.to_f / 2 : _v
+            %w(atk def hp).include?(x["key"]) ? _v.to_f / 2 : _v
         end
 
         mainStatKey = a["mainStatKey"].match(/^\w+_dmg_$/) ? "ele_dmg_" : a["mainStatKey"]
@@ -151,43 +158,28 @@ ALL_ARTIFACTS.each_with_index do |a,i|
         threshold += (a["level"] / 4 * _v).ceil
         threshold += 1 if !is_cor_set && ac["multi"]
 
-        available_chars[ac["char"]] = "#{value}/#{threshold}"
-        if value >= threshold
-            artifacts_requirements[ac["char"]]["artifacts"] ||= []
-            artifacts_requirements[ac["char"]]["artifacts"] << {
-                "no." => i, "value" => value, "threshold" => threshold
-            }
-            available_count += 1
-        end
-    end
-    if available_count > 0
-        lock_artifacts << i if !a["lock"]
-    else
-        lock_artifacts << i if FORCE_UNLOCK && a["lock"]
+        available_chars[ac["char"]] ||= {}
+        available_chars[ac["char"]]["text"] = "#{value}/#{threshold}"
+        available_chars[ac["char"]]["corset"] = is_cor_set
+        available_chars[ac["char"]]["valuable"] = value >= threshold
+        available_count += 1 if value >= threshold
     end
     info[-1] = available_count
-    info += chars_requirements.keys.map{|c| available_chars[c]}
-    log_artifacts_detail.puts info.join(",")
-end
-
-log_artifacts_chars = File.open("yas/artifacts.chars.log", "w")
-log_artifacts_chars << "\xEF\xBB\xBF"
-artifacts_requirements.each do |c,ac|
-    log_artifacts_chars.puts "\n====================================================="
-    log_artifacts_chars.puts "#{c}\t\t#{ac["sets"].map{|x| LOC_ARTIFACTS[x]}.join(", ")}"
-    log_artifacts_chars.puts "#{LOC_LOG["set_requirements"]}: #{ac["detail"]}"
-    next if !ac["artifacts"]
-    ac["artifacts"].each do |ai|
-        a = ALL_ARTIFACTS[ai["no."]]
-        log_artifacts_chars.puts "-----------------------------------------------------"
-        info = "No.#{ai["no."]}: #{LOC_ARTIFACTS[a["setKey"]]}-#{LOC_LOG[a["slotKey"]]}"
-        info += "\t#{LOC_LOG["main_attrs"]}: #{LOC_ATTRS[a["mainStatKey"]]}"
-        info += "\t#{LOC_LOG["sub_attrs"]}: #{a["substats"].map{|x| LOC_ATTRS[x["key"]]}.join(",")}"
-        info += "\nlv.#{a["level"]}\t#{LOC_LOG["value_comment"] % {val: ai["value"], thr: ai["threshold"]}}"
-        log_artifacts_chars.puts info
+    lock_pending = available_count > 0 && !a["lock"] ||
+        FORCE_UNLOCK && a["lock"] && available_count == 0
+    info[-2] = lock_pending
+    lock_artifacts.push i if lock_pending
+    result_table.write_row i + 2, 0, info
+    chars_requirements.keys.each_with_index do |c,j|
+        next if !available_chars[c]
+        result_table.write i + 2, j + CSV_PREFIX.length, available_chars[c]["text"]
+        cell_format = {}
+        cell_format.merge! format_corset if available_chars[c]["corset"]
+        cell_format.merge! format_useful if available_chars[c]["valuable"]
+        result_table.update_format_with_params i + 2, j + CSV_PREFIX.length, cell_format
     end
 end
-log_artifacts_chars.close
-log_artifacts_detail.close
+
+result_file.close
 File.write "yas/lock.json", lock_artifacts.to_json
 puts "lock-pending artifacts count: #{lock_artifacts.length}"
