@@ -4,6 +4,7 @@ require "write_xlsx"
 
 CONFIG = JSON.load_file! "config/artifacts_config.json"
 LOC_ATTRS = JSON.load_file! "locales/#{CONFIG["locale"]}.attributes.json"
+LOC_CHARS = JSON.load_file! "locales/#{CONFIG["locale"]}.characters.json"
 LOC_LOG = JSON.load_file! "locales/#{CONFIG["locale"]}.artifacts_log.json"
 
 ARTIFACTS_ATTRS = {
@@ -113,10 +114,9 @@ result_table = result_file.add_worksheet
 format_corset = { bg_color: "yellow" }
 format_useful = { color: "red" }
 
-CSV_PREFIX = %w[No. setName slotName level mainAttr subAttr locked lock-pending availableCount]
+CSV_PREFIX = %w[No. set slot mainAttr subAttr ownedBy locked lock-pending]
 result_table.write_row 0, 0, CSV_PREFIX + chars_requirements.keys
-result_table.write 1, 0, LOC_LOG["detail_note"]
-result_table.write 1, CSV_PREFIX.length - 1, LOC_LOG["sub_attrs"]
+result_table.write 1, 1, LOC_LOG["detail_note"]
 result_table.write_row 1, CSV_PREFIX.length, chars_requirements.values.map{|x| x["sub_attr"].join(",")}
 
 ALL_ARTIFACTS = JSON.load_file!("yas/good.json")["artifacts"]
@@ -125,12 +125,11 @@ ALL_ARTIFACTS.each_with_index do |a,i|
         i,
         LOC_ARTIFACTS[a["setKey"]],
         LOC_LOG[a["slotKey"]],
-        a["level"],
         LOC_ATTRS[a["mainStatKey"]],
         a["substats"].map{|x| LOC_ATTRS[x["key"]]}.join(","),
+        LOC_CHARS[a["location"]],
         a["lock"],
-        false,
-        false,
+        nil,
     ]
     info[-1] = LOC_LOG["set_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]]
     info[-1] = LOC_LOG["main_attr_not_used"] if !ARTIFACTS_ATTRS[a["slotKey"]][a["mainStatKey"]]
@@ -141,7 +140,7 @@ ALL_ARTIFACTS.each_with_index do |a,i|
     ARTIFACTS_ATTRS[a["slotKey"]][a["mainStatKey"]].each do |ac|
         is_cor_set = ac["sets"].include? a["setKey"]
         # 花毛始终使用套件
-        next if !is_cor_set && !CONFIG["allow_nonset_on_flower"] && (a["slotKey"] == "flower" || a["slotKey"] == "plume")
+        next if !is_cor_set && !CONFIG["allow_nonset_on_flower"] && %w(flower plume).include?(a["slotKey"])
 
         value = a["substats"].sum(0) do |x|
             next 0 if !ac["sub_attr"].include? x["key"]
@@ -150,7 +149,7 @@ ALL_ARTIFACTS.each_with_index do |a,i|
             %w(atk def hp).include?(x["key"]) ? _v.to_f / 2 : _v
         end
 
-        mainStatKey = a["mainStatKey"].match(/^\w+_dmg_$/) ? "ele_dmg_" : a["mainStatKey"]
+        mainStatKey = a["mainStatKey"].match(/^[a-z]+_dmg_$/) ? "ele_dmg_" : a["mainStatKey"]
         threshold = CONFIG["#{"sub" if !is_cor_set}least_of_#{a["slotKey"]}_#{mainStatKey}"]
         # 根据有效词条种数调整阈值
         threshold = [threshold, ac["sub_attr"].length - 1].min
@@ -164,10 +163,9 @@ ALL_ARTIFACTS.each_with_index do |a,i|
         available_chars[ac["char"]]["valuable"] = value >= threshold
         available_count += 1 if value >= threshold
     end
-    info[-1] = available_count
     lock_pending = available_count > 0 && !a["lock"] ||
         FORCE_UNLOCK && a["lock"] && available_count == 0
-    info[-2] = lock_pending
+    info[-1] = lock_pending
     lock_artifacts.push i if lock_pending
     result_table.write_row i + 2, 0, info
     chars_requirements.keys.each_with_index do |c,j|
