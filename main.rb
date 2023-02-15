@@ -88,8 +88,11 @@ CHAR_CONFIG.each do |c|
     }
     main_attr.each do |s,t|
         t.uniq.each do |a|
+            th = (c_attr["sub_attr"] - [a]).sum(0) do |x|
+                %w(atk def hp).include?(x) ? 0.5 : 1
+            end
             ARTIFACTS_ATTRS[s][a] ||= []
-            ARTIFACTS_ATTRS[s][a] << c_attr
+            ARTIFACTS_ATTRS[s][a] << c_attr.merge({"threshold" => th})
         end
     end
 end
@@ -150,11 +153,11 @@ ALL_ARTIFACTS.each_with_index do |a,i|
         end
 
         mainStatKey = a["mainStatKey"].match(/^[a-z]+_dmg_$/) ? "ele_dmg_" : a["mainStatKey"]
+        _avail = ac["sub_attr"] - [mainStatKey]
         threshold = CONFIG["#{"sub" if !is_cor_set}least_of_#{a["slotKey"]}_#{mainStatKey}"]
         # 根据有效词条种数调整阈值
-        threshold = [threshold, ac["sub_attr"].length - 1].min
-        _v = [ac["sub_attr"].length - 1, 4].min / 4.0
-        threshold += (a["level"] / 4 * _v).ceil
+        level_inc = a["level"] / 4 * (ac["threshold"] < 1 ? 0.5 : 1)
+        threshold = [threshold, ac["threshold"]].min + level_inc
         threshold += 1 if !is_cor_set && ac["multi"]
 
         available_chars[ac["char"]] ||= {}

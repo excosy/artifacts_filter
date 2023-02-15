@@ -32,6 +32,13 @@
 * 返回资源管理器，进入yas目录，右键`以管理员权限运行` `yas-lock.exe`以生成圣遗物文件。
 * 返回命令行窗口，键入`ruby main.rb`并回车执行以生成lock文件。(添加`-f`参数可以重新判断已锁定圣遗物)
 * 返回资源管理器，再次运行`yas-lock.exe`以锁定圣遗物。
+* 运行完成后可在`yas/artifacts.detail.{timestamp}.xlsx`里复查结果。
+
+## 2. 结果示例：
+![example_result](yas/example_result.png)
+* 可以通过`lock-pending`列快速筛选需要锁定的圣遗物。
+* 可以通过`颜色筛选`快速筛选适配圣遗物。
+* 着色文本代表圣遗物有效词条数达标，着色背景代表所属套装适配当前人物。
 
 ## 2. 运行规则：
 
@@ -49,9 +56,8 @@
     * ER: 是否刚需充能。2-可选充能沙，1-只靠副词条歪充能，0-充能为无效词条，-1-完全舍弃大招。
     * CR: 是否需要暴击。3-需要暴击爆伤，2-只需要爆伤，1-只需要暴击，0-无需暴击，-1-需要治疗头。
     * enable: 是否启用该行配置，不启用则置FALSE，或者直接删除该行也可。
-* 也可以在`yas/disabled_chars.txt`定义禁用的人物，每行一个人物名，效果同上文enable列置false。
-* 所有文件均以utf8编码保存，保存配置文件时请勿更改编码。
-* 运行完成后可在`yas/artifacts.detail.{timestamp}.xlsx`里复查结果。
+* `yas/disabled_chars.txt`定义了禁用的人物，每行一个人物名，效果同上文enable列置false。
+* 所有文件均以utf8编码保存，保存配置文件时请勿更改编码。编辑配置文件时建议使用[vscode](https://code.visualstudio.com/Download)或[notepad3](https://www.rizonesoft.com/downloads/notepad3/)保存。
 
 ## 3. Credits
 
